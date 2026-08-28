@@ -135,6 +135,20 @@ sudo usermod -aG bluetooth $USER
 
 ## Examples
 
+> **⚠️ Runtime Environment Notice**:
+>
+> The `import codex_pad` statement in the examples depends on the `codex_pad.py` library file located in the repository root. **Do NOT copy the example files to another directory and run them there**, or you will get a `ModuleNotFoundError`.
+>
+> You have three options to run the examples correctly:
+>
+> 1. **Run directly from the repository root (recommended)**: After cloning/downloading the repo, run `python example_xxx.py` from the directory containing `codex_pad.py`.
+> 2. **Copy the library file together**: If you must move the example file, also copy `codex_pad.py` to the same directory.
+> 3. **Install the library in editable mode**: If you want to be able to `import codex_pad` from anywhere, run the following in the repository root:
+>
+>    ```shell
+>    pip install -e .
+>    ```
+
 The example code contains detailed inline comments; it is recommended that you read the source files directly for the most complete information. The following briefly introduces the core functionality and expected behavior of each example to help you get started quickly.
 
 ### Direct connection by address (`example_address_directly_connect.py`)
@@ -142,18 +156,18 @@ The example code contains detailed inline comments; it is recommended that you r
 - **File location**: [example_address_directly_connect.py](example_address_directly_connect.py)
 - **Description**: Connects directly to the gamepad by address, detects changes in button state and joystick values, and prints them.
 - **Operation steps**:
-    1. After the program starts, it enters the scanning/connection state.
-    2. The gamepad's blue light blinks after it is powered on.
-    3. The program automatically scans and connects. Once the connection is established, operate the gamepad normally and view the real-time log output in the console.
+    1. Open `example_address_directly_connect.py` and find `_BLUETOOTH_DEVICE_ADDRESS = "16:00:00:00:02:72"`. Replace the address in quotes with your own gamepad's address (format like `"E4:66:E5:A2:24:5D"`, uppercase A-F, half-width colons).
+    2. Save the file, then run: `python example_address_directly_connect.py`.
+    3. The program will automatically scan and connect to the gamepad at that address. Once connected, operate the gamepad normally and view the real-time button and joystick log output in the console. If the connection fails, please try running the program a few more times.
 
 ### Scan & connect example (`example_scan_and_connect.py`)
 
 - **File location**: [example_scan_and_connect.py](example_scan_and_connect.py)
 - **Description**: Scans for and automatically connects to nearby gamepad devices by matching a specific user-defined **button** or **button combination**, detects joystick and button changes, and prints them.
 - **Operation steps**:
-    1. After the program starts, it enters the scanning/connection state.
+    1. Run: `python example_scan_and_connect.py`, after the program starts, it enters the scanning/connection state.
     2. The gamepad's blue light blinks after it is powered on.
-    3. Hold down the button mask (button combination) specified in your code on the gamepad, and keep holding it until the host successfully connects to the gamepad. Once the connection is established, operate the gamepad normally and view the real-time log output in the console.
+    3. **Hold down the button mask (button combination) specified in your code on the gamepad — by default Start + Cross(A) held simultaneously — and keep holding it** until the host successfully connects to the gamepad. Once connected, operate the gamepad normally and view the real-time log output in the console.
 
 **⚠️ Debugging notes**:
 

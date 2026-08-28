@@ -135,6 +135,22 @@ sudo usermod -aG bluetooth $USER
 
 ## 示例说明
 
+> **⚠️ 运行环境提示**：
+>
+> 示例代码中的 `import codex_pad` 依赖于仓库根目录下的 `codex_pad.py` 库文件。**请不要单独将示例文件拷贝到其他目录运行**，否则会报 `ModuleNotFoundError`。
+>
+> 你有以下三种方式正确运行示例：
+>
+> 1. **在仓库根目录下直接运行**（推荐）：克隆或下载仓库后，在包含 `codex_pad.py` 的目录中直接执行 `python example_xxx.py`。
+> 2. **将库文件一起拷贝**：如果你确实需要将示例文件放到其他位置，请务必同时将 `codex_pad.py` 文件复制到同一目录下。
+> 3. **以可编辑模式安装本库**：如果你希望在任何位置都能 `import codex_pad`，可以在仓库根目录下执行：
+>
+>    ```shell
+>    pip install -e .
+>    ```
+>
+>    这样 `codex_pad` 会被安装到 Python 环境中，之后你可以在任意位置运行示例。
+
 示例代码中包含详细的注释说明，建议直接查阅代码文件以获取最完整的信息。以下简要介绍各示例的核心功能与预期行为，助您快速入门。
 
 ### 地址直连示例（`example_address_directly_connect.py`）
@@ -142,18 +158,19 @@ sudo usermod -aG bluetooth $USER
 - **文件位置**：[example_address_directly_connect.py](example_address_directly_connect.py)
 - **示例说明**：通过地址与手柄进行地址直连，检测到按钮状态与摇杆数值变化后打印。
 - **操作步骤**：
-    1. 代码启动后进入扫描连接状态
-    2. 手柄开机后蓝灯闪烁
-    3. 程序会自动扫描建连，连接建立后，正常操作手柄即可在控制台查看实时日志输出
+    1. 打开 `example_address_directly_connect.py`，找到 `_BLUETOOTH_DEVICE_ADDRESS = "16:00:00:00:02:72"`，将引号内的地址改为您自己手柄的地址（格式形如 `"E4:66:E5:A2:24:5D"`，字符为大写 A-F、半角冒号分隔）。
+    2. 保存文件后运行：`python example_address_directly_connect.py`。
+    3. 程序会自动扫描并连接该地址对应的手柄。连接建立后，正常操作手柄即可在控制台查看实时的按键与摇杆日志输出。连接失败请多尝试几次。
 
 ### 扫描连接示例 (`example_scan_and_connect.py`)
 
 - **文件位置**：[example_scan_and_connect.py](example_scan_and_connect.py)
 - **示例说明**：通过匹配特定的自定义的**按键**或者**按键组合**来扫描并自动连接附近的手柄设备，检测摇杆和按键变化并打印。
+- **默认按键掩码**：代码中预设的默认组合为 **Start + Cross(A)**，即 `_BUTTON_MASK = BUTTON_START | BUTTON_CROSS_A`。如需修改，可编辑代码中的 `_BUTTON_MASK` 变量，将其改为您需要的按键组合。
 - **操作步骤**：
-    1. 代码启动后进入扫描连接状态
-    2. 手柄开机后蓝灯闪烁
-    3. 按住手柄上你代码中指定的按键掩码（按键组合），保持直至主机成功连接手柄。连接建立后，正常操作手柄即可在控制台查看实时日志输出
+    1. 运行：`python example_scan_and_connect.py`, 代码启动后进入扫描连接状态。
+    2. 手柄开机后蓝灯闪烁。
+    3. **在手柄上按住代码中指定的按键掩码（默认为 Start + Cross(A) 同时按住），并保持不放**，直到主机成功连接手柄。连接建立后，正常操作手柄即可在控制台查看实时日志输出。
 
 **⚠️ 调试注意事项**：
 
