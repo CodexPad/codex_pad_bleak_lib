@@ -4,21 +4,7 @@ import asyncio
 import threading
 from collections import deque
 
-__version__ = "1.0.0"
-
-TX_POWER_MINUS_16_DBM = -16
-TX_POWER_MINUS_12_DBM = -12
-TX_POWER_MINUS_8_DBM = -8
-TX_POWER_MINUS_5_DBM = -5
-TX_POWER_MINUS_3_DBM = -3
-TX_POWER_MINUS_1_DBM = -1
-TX_POWER_0_DBM = 0
-TX_POWER_1_DBM = 1
-TX_POWER_2_DBM = 2
-TX_POWER_3_DBM = 3
-TX_POWER_4_DBM = 4
-TX_POWER_5_DBM = 5
-TX_POWER_6_DBM = 6
+__version__ = "2.0.0"
 
 BUTTON_UP = 1 << 0
 BUTTON_DOWN = 1 << 1
@@ -58,9 +44,6 @@ _SERIAL_NUMBER_STRING_UUID = "00002a25-0000-1000-8000-00805f9b34fb"
 _FIRMWARE_REVISION_STRING_UUID = "00002a26-0000-1000-8000-00805f9b34fb"
 _MANUFACTURER_NAME_STRING_UUID = "00002a29-0000-1000-8000-00805f9b34fb"
 
-_TX_POWER_SERVICE_UUID = "00001804-0000-1000-8000-00805f9b34fb"
-_TX_POWER_CHARACTERISTIC_UUID = "00002a07-0000-1000-8000-00805f9b34fb"
-
 _MANUFACTURER_HEADER = "CodexPad".encode("utf-8")
 
 _BUTTON_STATE_UNPACK_FMT = "I"
@@ -79,29 +62,40 @@ _INPUTS_DATA_LENGTH = 8
 class CodexPadNotFoundError(Exception):
     pass
 
+def _validate_address(address: str):
+    parts = address.split(':')
+    if len(parts) != 6:
+        raise ValueError(f"address must be in format 'XX:XX:XX:XX:XX:XX', got '{address}'")
+
+    for part in parts:
+        if len(part) != 2:
+            raise ValueError(f"address: '{part}' is not a 2-char hex byte")
+        for c in part:
+            if c not in '0123456789ABCDEFabcdef':
+                raise ValueError(f"address: '{address}' contains non-hex char '{c}'")
 
 class CodexPadClient:
 
-    class Inputs:
+    class InputState:
 
         def __init__(self):
-            self.button_states = 0
-            self.axis_values = [AXIS_CENTER, AXIS_CENTER, AXIS_CENTER, AXIS_CENTER]
+            self.button_mask = 0
+            self.axes = [AXIS_CENTER, AXIS_CENTER, AXIS_CENTER, AXIS_CENTER]
 
         def parse_and_set(self, data: bytes):
             if not data or len(data) != _INPUTS_DATA_LENGTH:
                 return
             [
-                self.button_states,
-                self.axis_values[AXIS_LEFT_STICK_X],
-                self.axis_values[AXIS_LEFT_STICK_Y],
-                self.axis_values[AXIS_RIGHT_STICK_X],
-                self.axis_values[AXIS_RIGHT_STICK_Y],
+                self.button_mask,
+                self.axes[AXIS_LEFT_STICK_X],
+                self.axes[AXIS_LEFT_STICK_Y],
+                self.axes[AXIS_RIGHT_STICK_X],
+                self.axes[AXIS_RIGHT_STICK_Y],
             ] = struct.unpack(_INPUTS_UNPACK_FMT, data)
 
         def assign(self, other):
-            self.button_states = other.button_states
-            self.axis_values = other.axis_values[:]
+            self.button_mask = other.button_mask
+            self.axes = other.axes[:]
 
     def __init__(self):
         self._loop = asyncio.new_event_loop()
@@ -117,11 +111,10 @@ class CodexPadClient:
         self._remote_firmware_version = None
         self._client = None
         self._inputs_characteristic = None
-        self._tx_power_characteristic = None
         self._input_queue = deque(maxlen=5)
         self._lock = threading.Lock()
-        self._prev_inputs = CodexPadClient.Inputs()
-        self._current_inputs = CodexPadClient.Inputs()
+        self._prev_inputs = CodexPadClient.InputState()
+        self._current_inputs = CodexPadClient.InputState()
 
     def _run_coro(self, coro):
         """
@@ -142,9 +135,8 @@ class CodexPadClient:
             await self._client.disconnect()
         self._client = None
         self._inputs_characteristic = None
-        self._tx_power_characteristic = None
-        self._prev_inputs = CodexPadClient.Inputs()
-        self._current_inputs = CodexPadClient.Inputs()
+        self._prev_inputs = CodexPadClient.InputState()
+        self._current_inputs = CodexPadClient.InputState()
         with self._lock:
             self._input_queue.clear()
 
@@ -153,14 +145,15 @@ class CodexPadClient:
         with self._lock:
             self._input_queue.append(data)
 
-    async def _scan_and_connect(self, button_mask, scan_timeout, connect_timeout):
+    async def _connect_by_button_mask(self, button_mask, scan_timeout, connect_timeout):
         result_device = None
         scanner = bleak.BleakScanner()
         devices = await scanner.discover(timeout=scan_timeout, return_adv=True)
-        for _, (device, adv_data) in devices.items():
-            # print(f"address: {address}, device: {device}, adv_data: {adv_data}")
+        for address, (device, adv_data) in devices.items():
             if not device.name or not device.name.startswith("CodexPad-"):
                 continue
+
+            # print(f"address: {address}, device: {device}, adv_data: {adv_data}")
 
             if not adv_data or not adv_data.manufacturer_data:
                 continue
@@ -182,14 +175,14 @@ class CodexPadClient:
 
             firmware_version = bytes(unpacked[len(_MANUFACTURER_HEADER) : len(_MANUFACTURER_HEADER) + _MANUFACTURER_FIRMWARE_VERSION_LENGTH])
 
-            button_state = unpacked[len(_MANUFACTURER_HEADER) + _MANUFACTURER_FIRMWARE_VERSION_LENGTH]
+            current_button_mask = unpacked[len(_MANUFACTURER_HEADER) + _MANUFACTURER_FIRMWARE_VERSION_LENGTH]
 
-            if button_state != button_mask:
+            if current_button_mask != button_mask:
                 continue
 
-            button_states_duration_seconds = unpacked[-1]
+            button_mask_duration_seconds = unpacked[-1]
 
-            if firmware_version[0] > 1 and button_states_duration_seconds < 1:
+            if firmware_version[0] > 1 and button_mask_duration_seconds < 1:
                 continue
 
             if result_device is None or device.rssi > result_device.rssi:
@@ -200,11 +193,17 @@ class CodexPadClient:
 
         await self._connect(bleak.BleakClient(result_device, timeout=connect_timeout))
 
-    def scan_and_connect(self, button_mask, scan_timeout=3, connect_timeout=30):
-        return self._run_coro(self._scan_and_connect(button_mask, scan_timeout, connect_timeout))
+    def connect_by_button_mask(self, button_mask, scan_timeout=1, connect_timeout=30):
+        if not isinstance(button_mask, int):
+            raise TypeError(f"button_mask must be int, got {type(button_mask).__name__}")
 
-    def connect(self, bluetooth_device_address, timeout):
-        return self._run_coro(self._connect(bleak.BleakClient(address_or_ble_device=bluetooth_device_address, timeout=timeout)))
+        return self._run_coro(self._connect_by_button_mask(button_mask, scan_timeout, connect_timeout))
+
+    def connect_by_address(self, address, timeout):
+        if not isinstance(address, str):
+            raise TypeError(f"address must be str, got {type(address).__name__}")
+        _validate_address(address)
+        return self._run_coro(self._connect(bleak.BleakClient(address_or_ble_device=address, timeout=timeout)))
 
     async def _connect(self, client):
         await self._reset()
@@ -222,8 +221,6 @@ class CodexPadClient:
             firmware_bytes = await self._client.read_gatt_char(characteristic)
             self._remote_firmware_version = struct.unpack(_FIRMWARE_VERSION_UNPACK_FMT, firmware_bytes)
 
-            self._tx_power_characteristic = self._client.services.get_characteristic(_TX_POWER_CHARACTERISTIC_UUID)
-
             characteristic = self._client.services.get_characteristic(_INPUTS_CHARACTERISTIC_UUID)
 
             await self._client.start_notify(characteristic, callback=self._on_notify)
@@ -234,66 +231,6 @@ class CodexPadClient:
 
     def disconnect(self):
         self._run_coro(self._reset())
-
-    def set_remote_tx_power(self, tx_power):
-        """
-        设置远程设备（手柄）的蓝牙发射功率。
-        Set the Bluetooth transmission power of the remote device (controller).
-
-        参数/Parameter tx_power: 发射功率等级，单位为 dBm。必须为以下预定义常量之一：
-                               Transmission power level in dBm. Must be one of the following predefined constants:
-                               - `TX_POWER_MINUS_16_DBM`  (-16 dBm)
-                               - `TX_POWER_MINUS_12_DBM`  (-12 dBm)
-                               - `TX_POWER_MINUS_8_DBM`   ( -8 dBm)
-                               - `TX_POWER_MINUS_5_DBM`   ( -5 dBm)
-                               - `TX_POWER_MINUS_3_DBM`   ( -3 dBm)
-                               - `TX_POWER_MINUS_1_DBM`   ( -1 dBm)
-                               - `TX_POWER_0_DBM`         (  0 dBm)
-                               - `TX_POWER_1_DBM`         (  1 dBm)
-                               - `TX_POWER_2_DBM`         (  2 dBm)
-                               - `TX_POWER_3_DBM`         (  3 dBm)
-                               - `TX_POWER_4_DBM`         (  4 dBm)
-                               - `TX_POWER_5_DBM`         (  5 dBm)
-                               - `TX_POWER_6_DBM`         (  6 dBm)
-
-        发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大。
-        Transmission power affects communication range and power consumption:
-        Higher power provides longer range but consumes more battery.
-
-        建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命。
-        Choose an appropriate power level based on your application to balance range and battery life.
-
-        抛出/Raises:
-            ValueError: 如果 `tx_power` 不是上述预定义的功率常量之一。
-                   If `tx_power` is not one of the predefined power constants above.
-        """
-        tx_powers = {
-            TX_POWER_MINUS_16_DBM,
-            TX_POWER_MINUS_12_DBM,
-            TX_POWER_MINUS_8_DBM,
-            TX_POWER_MINUS_5_DBM,
-            TX_POWER_MINUS_3_DBM,
-            TX_POWER_MINUS_1_DBM,
-            TX_POWER_0_DBM,
-            TX_POWER_1_DBM,
-            TX_POWER_2_DBM,
-            TX_POWER_3_DBM,
-            TX_POWER_4_DBM,
-            TX_POWER_5_DBM,
-            TX_POWER_6_DBM,
-        }
-
-        if tx_power not in tx_powers:
-            raise ValueError(f"Invalid tx_power value: {tx_power}")
-
-        self._run_coro(self._set_remote_tx_power(tx_power))
-
-    async def _set_remote_tx_power(self, tx_power):
-        if not self._tx_power_characteristic:
-            raise AttributeError("TX Power characteristic not available. Device may not support this feature.")
-
-        await self._client.write_gatt_char(self._tx_power_characteristic, struct.pack("<b", tx_power))
-
 
     @property
     def remote_device_name(self):
@@ -320,7 +257,7 @@ class CodexPadClient:
         return self._remote_firmware_version[2]
 
     @property
-    def remote_bluetooth_device_address(self):
+    def remote_address(self):
         return self._client.address
 
     @property
@@ -330,35 +267,39 @@ class CodexPadClient:
     def update(self):
         self._prev_inputs.assign(self._current_inputs)
 
+        if not self.is_connected:
+            self._current_inputs = CodexPadClient.InputState()
+            return
+
         with self._lock:
             if len(self._input_queue) > 0:
                 self._current_inputs.parse_and_set(self._input_queue.popleft())
 
     def pressed(self, button):
-        return ((self._prev_inputs.button_states & button) == 0) and ((self._current_inputs.button_states & button) != 0)
+        return ((self._prev_inputs.button_mask & button) == 0) and ((self._current_inputs.button_mask & button) != 0)
 
     def released(self, button):
-        return ((self._prev_inputs.button_states & button) != 0) and ((self._current_inputs.button_states & button) == 0)
+        return ((self._prev_inputs.button_mask & button) != 0) and ((self._current_inputs.button_mask & button) == 0)
 
     def holding(self, button):
-        return ((self._prev_inputs.button_states & button) != 0) and ((self._current_inputs.button_states & button) != 0)
+        return ((self._prev_inputs.button_mask & button) != 0) and ((self._current_inputs.button_mask & button) != 0)
 
-    def button_state(self, button):
-        return (self._current_inputs.button_states & button) != 0
+    def down(self, button):
+        return (self._current_inputs.button_mask & button) == button
 
     @property
-    def button_states(self) -> int:
-        return self._current_inputs.button_states
+    def button_mask(self) -> int:
+        return self._current_inputs.button_mask
 
     def axis_value(self, axis):
-        return self._current_inputs.axis_values[axis]
+        return self._current_inputs.axes[axis]
 
     @property
-    def axis_values(self):
-        return tuple(self._current_inputs.axis_values)
+    def axes(self):
+        return tuple(self._current_inputs.axes)
 
     def _has_axis_value_changed_significantly(self, prev_value, current_value, threshold):
         return prev_value != current_value and (current_value == 0 or current_value == 255 or abs(current_value - prev_value) >= threshold)
 
     def has_axis_value_changed(self, axis, threshold):
-        return self._has_axis_value_changed_significantly(self._prev_inputs.axis_values[axis], self._current_inputs.axis_values[axis], threshold)
+        return self._has_axis_value_changed_significantly(self._prev_inputs.axes[axis], self._current_inputs.axes[axis], threshold)
