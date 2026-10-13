@@ -34,27 +34,24 @@ codex_pad_client = codex_pad.CodexPadClient()
 def connect(button_mask):
     while True:
         try:
-            print(f"Scanning and connecting to CodexPad with button mask: 0x{button_mask:08X}")
-            codex_pad_client.scan_and_connect(button_mask)
+            print(f"Connecting by button mask: 0x{button_mask:08X}")
+            codex_pad_client.connect_by_button_mask(button_mask)
             print(f"Remote device name: {codex_pad_client.remote_device_name}")
             print(f"Remote model number: {codex_pad_client.remote_model_number}")
             print(
                 f"Remote firmware version: {codex_pad_client.remote_firmware_version_major}.{codex_pad_client.remote_firmware_version_minor}.{codex_pad_client.remote_firmware_version_patch}"
             )
-            print(f"Remote Bluetooth Device Address: {codex_pad_client.remote_bluetooth_device_address}")
-
-            # 设置发射功率为0dBm
-            # 发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大
-            # 建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命
-            # Set transmission power to 0dBm
-            # Transmission power affects communication range and power consumption:
-            # Higher power provides longer range but consumes more battery
-            # Choose appropriate power level based on your application to balance range and battery life
-            # asyncio.run(codex_pad_obj.set_remote_tx_power(codex_pad.TX_POWER_0_DBM))
+            print(f"Remote address: {codex_pad_client.remote_address}")
             print("Connected")
             return
         except bleak.exc.BleakDeviceNotFoundError:
             print("Connection timed out, trying again...")
+        except TypeError as e:
+            print(f"TypeError: {e}")
+            raise e
+        except ValueError as e:
+            print(f"ValueError: {e}")
+            raise e
         except Exception as e:
             print(f"Connection failed: {e}, trying again...")
 

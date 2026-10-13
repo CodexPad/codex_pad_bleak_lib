@@ -1,9 +1,7 @@
 import codex_pad
-import asyncio
 import bleak
-import time
 
-_BLUETOOTH_DEVICE_ADDRESS = "16:00:00:00:02:72"
+_BLUETOOTH_DEVICE_ADDRESS = "E4:66:E5:A2:17:06"
 
 
 def button_to_string(button):
@@ -37,27 +35,24 @@ codex_pad_client = codex_pad.CodexPadClient()
 def connect(bluetooth_device_address):
     while True:
         try:
-            print(f"Connecting to {bluetooth_device_address}")
-            codex_pad_client.connect(bluetooth_device_address, timeout=30.0)
+            print(f"Connecting by address: {bluetooth_device_address}")
+            codex_pad_client.connect_by_address(bluetooth_device_address, timeout=30.0)
             print(f"Remote device name: {codex_pad_client.remote_device_name}")
             print(f"Remote model number: {codex_pad_client.remote_model_number}")
             print(
                 f"Remote firmware version: {codex_pad_client.remote_firmware_version_major}.{codex_pad_client.remote_firmware_version_minor}.{codex_pad_client.remote_firmware_version_patch}"
             )
-            print(f"Remote Bluetooth Device Address: {codex_pad_client.remote_bluetooth_device_address}")
-
-            # 设置发射功率为0dBm
-            # 发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大
-            # 建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命
-            # Set transmission power to 0dBm
-            # Transmission power affects communication range and power consumption:
-            # Higher power provides longer range but consumes more battery
-            # Choose appropriate power level based on your application to balance range and battery life
-            # asyncio.run(codex_pad_obj.set_remote_tx_power(codex_pad.TX_POWER_0_DBM))
+            print(f"Remote address: {codex_pad_client.remote_address}")
             print("Connected")
             return
         except bleak.exc.BleakDeviceNotFoundError:
             print("Connection timed out, trying again...")
+        except TypeError as e:
+            print(f"TypeError: {e}")
+            raise e
+        except ValueError as e:
+            print(f"ValueError: {e}")
+            raise e
         except Exception as e:
             print(f"Connection failed: {e}, trying again...")
 

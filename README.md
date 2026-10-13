@@ -16,50 +16,13 @@ Thanks to **bleak**'s excellent cross-platform support, this library runs seamle
 
 Whether you are developing on a desktop computer or an embedded platform such as a Raspberry Pi, you can use this library to easily communicate with a CodexPad gamepad over BLE.
 
-| CodexPad Model | Details |
-| :--- | :--- |
-| CodexPad-C10 | [Product Details](../../../codex_pad_c10/blob/main/README.md#codexpad-c10) |
-| CodexPad-S10 | [Product Details](../../../codex_pad_s10/blob/main/README.md#codexpad-s10) |
-
 ## Features
 
-- **Flexible dual-mode connection**:
-
-  - **Direct connection by address**: Quickly establish a stable connection to a specific gamepad using its known **Bluetooth device address**.
-
-  - **Button-mask scan & connect**: No need to know the **Bluetooth device address** in advance. The library scans for nearby devices and automatically connects to the one with the strongest signal (maximum RSSI) that matches a user-defined button combination (a "button mask") being held on the gamepad — enabling fast and flexible pairing.
-
-- **Real-time button event detection**: Read the input state of all buttons in real time, and distinguish among three events: **press**, **release**, and **hold**.
-
-- **High-precision joystick data**: Obtain analog values for the X and Y axes of both joysticks, ranging from 0 to 255, providing precise control input.
-
-- **Adjustable transmit power**: Dynamically adjust the Bluetooth transmit power within the range of -16 dBm to +6 dBm to suit different application scenarios (e.g., distance and power consumption requirements).
-
-## Button-Mask Scan & Connect
-
-### Design Intent and Advantages
-
-1. **Prevent accidental connections and interference**: When multiple connectable devices of the same type (for example, several gamepads) are nearby, connecting by unique address is precise but typically requires "hardcoding" that address in the code. This binds the program to a specific device and lacks flexibility. By requiring the target device to be holding a specific button combination when discovered, you define a dynamic, condition-based connection rule. Your connection code no longer needs to bind to any device's physical address — any device that satisfies this "handshake protocol" (holding the correct buttons) will be connected. This both prevents the host from accidentally connecting to the wrong device among many, and enables the convenience of **connect-on-press, with devices switchable at any time**.
-
-2. **Build an exclusive connection condition**: You can think of this button mask as a simple "password" or "connection token." It establishes an exclusive connection channel between your application and the device — only devices that satisfy this specific physical interaction condition (holding the designated buttons) can join, enhancing the intentionality and controllability of the connection.
-
-3. **Improve code flexibility and support on-the-fly device switching**: Unlike hardcoding a specific device address, the button-mask connection logic is oriented toward "conditions" rather than "specific devices." This means the same connection code, with no modification, can connect to any gamepad that is in a discoverable state and correctly triggers the preset button condition. This brings two major benefits:
-
-    - **No binding to a specific device**: You do not need to specify a particular gamepad's address in your code, nor maintain separate connection configurations for different gamepads.
-
-    - **Connect on press, switch flexibly**: In practice, you can pick up another gamepad at any time; as long as it is powered on and the correct button combination is held, your program will automatically connect to it, enabling seamless switching between different gamepads.
-
-### How It Works — Operation Steps
-
-1. **Set the mask**: Define a **button mask** in your code and pass it to the relevant parameter of the connection function.
-
-2. **Power on the device**: Turn on your gamepad so that it enters the discoverable, awaiting-connection state (the indicator should blink slowly).
-
-3. **Execute the connection**: Run your program. While the program is scanning, precisely hold down all the buttons defined in your mask on the target gamepad.
-
-4. **Automatic pairing**: After scanning a device, the program checks whether its button state exactly matches the preset mask (i.e., all specified buttons are held, and no unspecified buttons are pressed). Once a match is found, the program automatically establishes a connection with the strongest-matching device.
-
-> **⚠️ Important warning**: The button mask must **never** include `BUTTON_HOME` (the Home button). Long-pressing the Home button triggers a system reboot of the gamepad, which will directly interrupt the connection process and leave the device in an unexpected state.
+- **Flexible Dual-Mode Connection**:
+  - **Direct Connection via Address**: Quickly establish a stable connection with a specific controller using a known Bluetooth Device Address.
+  - **Button Mask Connection**: By scanning for and matching a specific combination of buttons held down on the target controller (defined as a "button mask" in your code), the library automatically connects to the device with the strongest signal (highest RSSI), enabling fast and flexible pairing.
+- **Real-time Button Event Detection**: Reads the input status of all buttons in real time, distinguishing between **Pressed**, **Released**, and **Holding** events.
+- **High-Precision Joystick Data**: Retrieves analog values for the X and Y axes of the left and right joysticks, ranging from 0 to 255, providing precise control input.
 
 ## Usage
 
@@ -69,13 +32,7 @@ Before you start coding, complete the following preparation steps to ensure a sm
 
 #### Familiarize yourself with the product documentation
 
-- Read the CodexPad product manual thoroughly to fully understand the hardware features, button and joystick layout, function definitions, indicator states, and power on/off operations.
-
-#### Obtain and record the gamepad's Bluetooth device address
-
-> **⚠️ Important note**: The direct-connection example connects by address. **When coding, you must explicitly specify your gamepad's Bluetooth Device Address in the code.**
-
-Refer to the method provided in the product manual to obtain your gamepad's address. Its format is typically `"E4:66:E5:A2:24:5D"` (characters 0-9 and A-F, with half-width colons as separators). Please record this information carefully — you will need to replace it with your own gamepad's actual address later in the code.
+- Read the CodexPad product manual thoroughly to fully understand the hardware features, button and joystick layout, function definitions, indicator states, obtaining address, and power on/off operations.
 
 #### Install bleak
 
@@ -151,28 +108,37 @@ sudo usermod -aG bluetooth $USER
 
 The example code contains detailed inline comments; it is recommended that you read the source files directly for the most complete information. The following briefly introduces the core functionality and expected behavior of each example to help you get started quickly.
 
-### Direct connection by address (`example_address_directly_connect.py`)
+### Direct connection by address (`example_connect_by_button_mask.py`)
 
-- **File location**: [example_address_directly_connect.py](example_address_directly_connect.py)
+- **File location**: [example_connect_by_button_mask.py](example_connect_by_button_mask.py)
 - **Description**: Connects directly to the gamepad by address, detects changes in button state and joystick values, and prints them.
 - **Operation steps**:
-    1. Open `example_address_directly_connect.py` and find `_BLUETOOTH_DEVICE_ADDRESS = "16:00:00:00:02:72"`. Replace the address in quotes with your own gamepad's address (format like `"E4:66:E5:A2:24:5D"`, uppercase A-F, half-width colons).
-    2. Save the file, then run: `python example_address_directly_connect.py`.
+    1. Open `example_connect_by_button_mask.py` and find `_BLUETOOTH_DEVICE_ADDRESS = "16:00:00:00:02:72"`. Replace the address in quotes with your own gamepad's address (format like `"E4:66:E5:A2:24:5D"`, uppercase A-F, half-width colons).
+    2. Save the file, then run: `python example_connect_by_button_mask.py`.
     3. The program will automatically scan and connect to the gamepad at that address. Once connected, operate the gamepad normally and view the real-time button and joystick log output in the console. If the connection fails, please try running the program a few more times.
 
-### Scan & connect example (`example_scan_and_connect.py`)
+### Button mask connection example (`example_connect_by_button_mask.py`)
 
-- **File location**: [example_scan_and_connect.py](example_scan_and_connect.py)
+- **File location**: [example_connect_by_button_mask.py](example_connect_by_button_mask.py)
 - **Description**: Scans for and automatically connects to nearby gamepad devices by matching a specific user-defined **button** or **button combination**, detects joystick and button changes, and prints them.
+
+> ⚠️ **Known Issue on Raspberry Pi (Bleak Stack)**:
+> The "Button Mask Connection" feature currently has a bug when using the `bleak` stack on Raspberry Pi (and potentially other Linux distributions). It may fail to connect. This feature works normally on Windows.
+> A solution may be provided in the future. In the meantime, users can try switching to a different Bluetooth stack or explore other workarounds on their own.
+
 - **Operation steps**:
-    1. Run: `python example_scan_and_connect.py`, after the program starts, it enters the scanning/connection state.
-    2. The gamepad's blue light blinks after it is powered on.
+    1. Run: `python example_connect_by_button_mask.py`, after the program starts, it enters the scanning/connection state.
+    2. The gamepad's signal light blinks after it is powered on.
     3. **Hold down the button mask (button combination) specified in your code on the gamepad — by default Start + Cross(A) held simultaneously — and keep holding it** until the host successfully connects to the gamepad. Once connected, operate the gamepad normally and view the real-time log output in the console.
 
 **⚠️ Debugging notes**:
 
 During development and debugging, `Ctrl+C` is often used to interrupt the program. Note that after the program process terminates, the underlying OS-level Bluetooth connection may not be disconnected immediately. If you re-run the program at this point, you may encounter connection failures or be unable to find the device.
 **Solution**: Reboot the gamepad so that it exits the connected state and re-enters discoverable mode (slow blue blinking).
+
+## Button Mask Connection Explained
+
+Details: [Button Mask Connection Explained](../../../codex_pad_guide/blob/main/button_mask_connection_explained.md#button-mask-connection-explained)
 
 ## License
 
